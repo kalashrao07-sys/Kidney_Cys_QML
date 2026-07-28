@@ -1,0 +1,1 @@
+Figure 4. Accuracy comparison between VQC-amplitude (75 mRMR-selected genes, 7 qubits) and VQC-angle (10 mRMR-selected genes, 10 qubits), both under identical nested LOOCV, ansatz, and training budget. Exact McNemar test on paired per-fold correctness: p=0.0215. Note this ablation confounds encoding scheme with feature-set size; see Discussion/Limitations for interpretation.
