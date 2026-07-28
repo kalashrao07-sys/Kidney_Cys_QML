@@ -1,0 +1,1 @@
+Figure 2. Per-model confusion matrices under nested leave-one-out CV. Rows are true class, columns are predicted class. Class order: Small_Cyst, Medium_Cyst, Large_Cyst, MCT, Normal_Control.
