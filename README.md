@@ -126,6 +126,6 @@ python phase4_vqc_pennylane.py
 
 ## Citation
 
-Prema T Akkasaligar, Patil, M., P. T., & Pattar, S. *Kidney Cyst Gene
+Patil, M., Akkasaligar, P. T., & Pattar, S. *Kidney Cyst Gene
 Expression Analysis using Machine Learning.* KLE Technological
 University.
