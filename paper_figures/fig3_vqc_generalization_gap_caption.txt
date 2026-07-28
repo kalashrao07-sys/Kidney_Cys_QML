@@ -1,0 +1,1 @@
+Figure 3. (A) Mean training accuracy vs. LOOCV test accuracy for the two VQC encoding variants. VQC-amplitude shows no train-test gap (0.671 vs 0.714), while VQC-angle shows a pronounced gap (0.638 vs 0.333), indicating overfitting on the smaller 10-gene feature set. (B) Distribution of per-fold training accuracy across the 21 LOOCV folds for each variant.
