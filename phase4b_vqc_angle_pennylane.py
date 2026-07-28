@@ -64,12 +64,12 @@ from mrmr import mrmr_classif
 # Config
 # ============================================================
 INPUT_CSV = "gene_expression_labeled.csv"   # same file every other phase uses
-N_FEATURES_ANGLE = 10    # 1 qubit/feature for angle encoding -- keep small
+N_FEATURES_ANGLE = 20    # 1 qubit/feature for angle encoding -- keep small
 PREFILTER = 3000         # same cheap variance pre-filter as phase3/phase4
 N_QUBITS = N_FEATURES_ANGLE   # exactly 1 qubit per feature, no padding needed
-N_CYCLES = 3             # matches phase4 for a fair ablation
-VQC_EPOCHS = 60          # matches phase4 for a fair ablation
-LEARNING_RATE = 0.1
+N_CYCLES = 2             # matches phase4 for a fair ablation
+VQC_EPOCHS = 100          # matches phase4 for a fair ablation
+LEARNING_RATE = 0.05
 RANDOM_STATE = 42
 OPTIMIZER = "adam"
 
@@ -165,8 +165,8 @@ def make_optimizer():
 
 
 def init_weights():
-    w1 = pnp.array(np.random.uniform(0, 2 * np.pi, (N_CYCLES, N_QUBITS, 2)), requires_grad=True)
-    w2 = pnp.array(np.random.uniform(0, 2 * np.pi, (N_CYCLES, N_QUBITS, 2)), requires_grad=True)
+    w1 = pnp.array(np.random.uniform(-0.1, 0.1, (N_CYCLES, N_QUBITS, 2)), requires_grad=True)
+    w2 = pnp.array(np.random.uniform(-0.1, 0.1, (N_CYCLES, N_QUBITS, 2)), requires_grad=True)
     return w1, w2
 
 
