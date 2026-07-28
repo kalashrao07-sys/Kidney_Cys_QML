@@ -64,12 +64,12 @@ from mrmr import mrmr_classif
 # Config
 # ============================================================
 INPUT_CSV = "gene_expression_labeled.csv"   # same file every other phase uses
-N_FEATURES_ANGLE = 15    # 1 qubit/feature for angle encoding -- keep small
+N_FEATURES_ANGLE = 10    # 1 qubit/feature for angle encoding -- keep small
 PREFILTER = 3000         # same cheap variance pre-filter as phase3/phase4
 N_QUBITS = N_FEATURES_ANGLE   # exactly 1 qubit per feature, no padding needed
-N_CYCLES = 2             # matches phase4 for a fair ablation
-VQC_EPOCHS = 50          # matches phase4 for a fair ablation
-LEARNING_RATE = 0.05
+N_CYCLES = 3             # matches phase4 for a fair ablation
+VQC_EPOCHS = 60          # matches phase4 for a fair ablation
+LEARNING_RATE = 0.1
 RANDOM_STATE = 42
 OPTIMIZER = "adam"
 
@@ -139,18 +139,10 @@ def circuit(x, weights1, weights2):
 
 
 def forward_probs(X_batch, weights1, weights2):
-
-    outputs = []
-
-    for sample in X_batch:
-        outputs.append(circuit(sample, weights1, weights2))
-
-    z = pnp.array(outputs)
-
+    raw = circuit(X_batch, weights1, weights2)
+    z = pnp.stack(raw).T
     z = z - pnp.max(z, axis=1, keepdims=True)
-
     e = pnp.exp(z)
-
     return e / pnp.sum(e, axis=1, keepdims=True)
 
 
@@ -173,8 +165,8 @@ def make_optimizer():
 
 
 def init_weights():
-    w1 = pnp.array(np.random.uniform(-0.1, 0.1, (N_CYCLES, N_QUBITS, 2)), requires_grad=True)
-    w2 = pnp.array(np.random.uniform(-0.1, 0.1, (N_CYCLES, N_QUBITS, 2)), requires_grad=True)
+    w1 = pnp.array(np.random.uniform(0, 2 * np.pi, (N_CYCLES, N_QUBITS, 2)), requires_grad=True)
+    w2 = pnp.array(np.random.uniform(0, 2 * np.pi, (N_CYCLES, N_QUBITS, 2)), requires_grad=True)
     return w1, w2
 
 
