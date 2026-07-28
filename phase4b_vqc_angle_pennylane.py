@@ -139,10 +139,24 @@ def circuit(x, weights1, weights2):
 
 
 def forward_probs(X_batch, weights1, weights2):
-    raw = circuit(X_batch, weights1, weights2)
-    z = pnp.stack(raw).T
+
+    outputs = []
+
+    print("X_batch shape:", X_batch.shape)
+
+    for i, sample in enumerate(X_batch):
+        print(f"Sample {i} shape:", sample.shape)
+
+        out = circuit(sample, weights1, weights2)
+
+        outputs.append(out)
+
+    z = pnp.array(outputs)
+
     z = z - pnp.max(z, axis=1, keepdims=True)
+
     e = pnp.exp(z)
+
     return e / pnp.sum(e, axis=1, keepdims=True)
 
 
