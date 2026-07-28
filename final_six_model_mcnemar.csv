@@ -1,0 +1,16 @@
+model_a,model_b,discordant_folds,p_value
+RF_pred,XGB_pred,12,0.00048828125
+RF_pred,MLP_pred,4,1.0
+RF_pred,SVM_pred,6,0.6875
+RF_pred,QSVM_pred,4,0.625
+RF_pred,VQC_pred,6,0.6875
+XGB_pred,MLP_pred,14,0.0018310546875
+XGB_pred,SVM_pred,14,0.0001220703125
+XGB_pred,QSVM_pred,14,0.0001220703125
+XGB_pred,VQC_pred,12,0.00634765625
+MLP_pred,SVM_pred,4,0.625
+MLP_pred,QSVM_pred,4,0.625
+MLP_pred,VQC_pred,4,0.625
+SVM_pred,QSVM_pred,2,1.0
+SVM_pred,VQC_pred,6,0.21875
+QSVM_pred,VQC_pred,4,0.125
