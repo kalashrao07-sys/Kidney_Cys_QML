@@ -27,8 +27,8 @@ from scipy.stats import binomtest
 # EDIT THESE THREE FILENAMES to match your actual phase5/phase6 outputs
 # ============================================================
 PHASE3_CSV = "loocv_fold_results.csv"          # RF_pred, XGB_pred, MLP_pred
-PHASE5_SVM_CSV = "svm_loocv_fold_results.csv"  # must contain an SVM_pred column
-PHASE6_QSVM_CSV = "qsvm_loocv_fold_results.csv"  # must contain a QSVM_pred column
+PHASE5_SVM_CSV = "phase5_loocv_fold_results.csv"  # must contain an SVM_pred column
+PHASE6_QSVM_CSV = "phase6_qsvm_fold_results.csv"  # must contain a QSVM_pred column
 PHASE4_VQC_CSV = "vqc_loocv_fold_results.csv"  # VQC_pred
 
 MODEL_COLUMNS = ["RF_pred", "XGB_pred", "MLP_pred", "SVM_pred", "QSVM_pred", "VQC_pred"]
