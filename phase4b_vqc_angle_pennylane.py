@@ -64,7 +64,7 @@ from mrmr import mrmr_classif
 # Config
 # ============================================================
 INPUT_CSV = "gene_expression_labeled.csv"   # same file every other phase uses
-N_FEATURES_ANGLE = 10    # 1 qubit/feature for angle encoding -- keep small
+N_FEATURES_ANGLE = 15    # 1 qubit/feature for angle encoding -- keep small
 PREFILTER = 3000         # same cheap variance pre-filter as phase3/phase4
 N_QUBITS = N_FEATURES_ANGLE   # exactly 1 qubit per feature, no padding needed
 N_CYCLES = 2             # matches phase4 for a fair ablation
