@@ -13,7 +13,17 @@
 </div>
 
 ---
+<p align="center">
 
+<a href="https://kidney-cys-qml.onrender.com/">
+<img src="https://img.shields.io/badge/Live%20Demo-Render-46E3B7?style=for-the-badge&logo=render">
+</a>
+
+<a href="https://drive.google.com/">
+<img src="https://img.shields.io/badge/Demo%20Video-Click Me-FF0000?style=for-the-badge&logo=googledrive">
+</a>
+
+---
 # 📌 Overview
 
 Kidney cystic diseases are among the major causes of chronic kidney disorders. Early and accurate identification of different cyst types can significantly improve diagnosis and treatment planning.
