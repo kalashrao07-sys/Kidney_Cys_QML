@@ -29,6 +29,7 @@ from sklearn.svm import SVC
 from sklearn.preprocessing import LabelEncoder, StandardScaler, MinMaxScaler
 from sklearn.model_selection import LeaveOneOut
 from mrmr import mrmr_classif
+import pennylane as qml
 
 INPUT_CSV = "gene_expression_labeled.csv"
 N_FEATURES = 75
@@ -111,7 +112,6 @@ svm_final.fit(X_scaled, y, sample_weight=sample_weight)
 mm_scaler = MinMaxScaler(feature_range=(0, 1)).fit(X_scaled)
 X_q_scaled = mm_scaler.transform(X_scaled)
 
-import pennylane as qml
 N_QUBITS = int(np.ceil(np.log2(N_FEATURES)))  # 7
 
 dev = qml.device("default.qubit", wires=N_QUBITS)
