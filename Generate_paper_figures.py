@@ -269,6 +269,301 @@ def figure_encoding_ablation():
         f"scheme with feature-set size; see Discussion/Limitations for interpretation."
     ))
 
+# ============================================================
+# Figure 5: Dataset class distribution
+# ============================================================
+def figure_class_distribution():
+    path = "gene_expression_labeled.csv"
+    if not os.path.exists(path):
+        print(f"SKIPPED Figure 5: {path} not found")
+        return
+    df = pd.read_csv(path, index_col=0)
+    counts = df["label"].value_counts().reindex(LABELS)
+
+    fig, ax = plt.subplots(figsize=(6, 4.5))
+    bars = ax.bar([LABEL_SHORT[l] for l in LABELS], counts.values,
+                  color=["#4C72B0", "#DD8452", "#55A868", "#C44E52", "#8172B3"])
+    for b, v in zip(bars, counts.values):
+        ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.1,
+                str(int(v)), ha="center", va="bottom", fontsize=10)
+    ax.set_ylabel("Number of samples")
+    ax.set_title("GSE7869 class distribution (n=21)")
+    ax.set_ylim(0, max(counts.values) + 2)
+    fig.tight_layout()
+    save_fig(fig, "fig5_class_distribution", (
+        "Figure 5. Class distribution of the GSE7869 dataset used in this study "
+        "(n=21 samples across 5 classes: Small_Cyst=5, Medium_Cyst=5, Large_Cyst=3, "
+        "MCT=5, Normal_Control=3). Note the substantial class imbalance, particularly "
+        "for Large_Cyst and Normal_Control (n=3 each), which motivated the use of "
+        "Leave-One-Out CV and class-balanced weighting rather than standard k-fold CV."
+    ))
+
+
+# ============================================================
+# Figure 6: PCA 2D scatter of samples (all genes, standardized)
+# ============================================================
+def figure_pca_scatter():
+    path = "gene_expression_labeled.csv"
+    if not os.path.exists(path):
+        print(f"SKIPPED Figure 6: {path} not found")
+        return
+    from sklearn.decomposition import PCA
+    from sklearn.preprocessing import StandardScaler
+
+    df = pd.read_csv(path, index_col=0)
+    X = df.drop(columns=["label"])
+    y = df["label"]
+
+    # Same cheap variance pre-filter used ahead of mRMR elsewhere in the
+    # pipeline, applied here on the FULL 21 samples since this is a
+    # visualization only -- do NOT reuse this PCA for any accuracy claim.
+    top_var_genes = X.var().sort_values(ascending=False).index[:3000]
+    X_pf = X[top_var_genes]
+
+    X_scaled = StandardScaler().fit_transform(X_pf)
+    pca = PCA(n_components=2, random_state=42)
+    coords = pca.fit_transform(X_scaled)
+    var_explained = pca.explained_variance_ratio_
+
+    fig, ax = plt.subplots(figsize=(6.5, 5.5))
+    colors = {"Small_Cyst": "#4C72B0", "Medium_Cyst": "#DD8452", "Large_Cyst": "#55A868",
+              "MCT": "#C44E52", "Normal_Control": "#8172B3"}
+    for label in LABELS:
+        mask = (y == label).values
+        ax.scatter(coords[mask, 0], coords[mask, 1], label=LABEL_SHORT[label],
+                   color=colors[label], s=80, edgecolor="black", linewidth=0.5)
+    ax.set_xlabel(f"PC1 ({var_explained[0]*100:.1f}% variance)")
+    ax.set_ylabel(f"PC2 ({var_explained[1]*100:.1f}% variance)")
+    ax.set_title("PCA of GSE7869 samples (top 3000 variance-filtered genes)")
+    ax.legend(frameon=False, title="Class")
+    fig.tight_layout()
+    save_fig(fig, "fig6_pca_scatter", (
+        "Figure 6. Principal component analysis (PCA) of all 21 samples, computed "
+        "on standardized expression values of the top 3,000 most-variable genes "
+        "(the same cheap variance pre-filter used ahead of mRMR in the modeling "
+        "pipeline). This is a full-data, non-nested visualization intended to show "
+        "gross sample structure/separability only -- it is not derived from, and "
+        "should not be conflated with, the nested LOOCV classification results."
+    ))
+
+
+# ============================================================
+# Figure 7: QSVM quantum kernel vs classical RBF kernel heatmaps
+# ============================================================
+def figure_kernel_heatmaps():
+    path = "gene_expression_labeled.csv"
+    if not os.path.exists(path):
+        print(f"SKIPPED Figure 7: {path} not found")
+        return
+    try:
+        import pennylane as qml
+    except ImportError:
+        print("SKIPPED Figure 7: pennylane not installed (pip install pennylane --break-system-packages)")
+        return
+    from sklearn.preprocessing import StandardScaler, MinMaxScaler, LabelEncoder
+    from sklearn.metrics.pairwise import rbf_kernel
+    from mrmr import mrmr_classif
+
+    df = pd.read_csv(path, index_col=0)
+    X = df.drop(columns=["label"]).reset_index(drop=True)
+    y_raw = df["label"].reset_index(drop=True)
+    le = LabelEncoder()
+    y = le.fit_transform(y_raw)
+    class_names = le.classes_
+
+    # mRMR here is fit on the FULL 21 samples purely for this visualization --
+    # this is NOT the nested per-fold selection used for the reported LOOCV
+    # accuracy in phase6_QSM.py. Do not treat this gene set or kernel matrix
+    # as an accuracy claim; it exists only to show what each kernel "sees".
+    N_FEATURES = 75
+    PREFILTER = 3000
+    top_var_genes = X.var().sort_values(ascending=False).index[:PREFILTER]
+    X_pf = X[top_var_genes]
+    selected = mrmr_classif(X=X_pf, y=pd.Series(y), K=N_FEATURES, show_progress=False)
+    X_sel = X_pf[selected].values
+
+    std_scaler = StandardScaler().fit(X_sel)
+    X_std = std_scaler.transform(X_sel)
+    mm_scaler = MinMaxScaler(feature_range=(0, 1)).fit(X_std)
+    X_scaled = mm_scaler.transform(X_std)
+
+    N_QUBITS = int(np.ceil(np.log2(N_FEATURES)))
+    dev = qml.device("default.qubit", wires=N_QUBITS)
+
+    @qml.qnode(dev)
+    def kernel_circuit(x1, x2):
+        qml.AmplitudeEmbedding(x1, wires=range(N_QUBITS), normalize=True, pad_with=0.0)
+        qml.adjoint(qml.AmplitudeEmbedding)(x2, wires=range(N_QUBITS), normalize=True, pad_with=0.0)
+        return qml.probs(wires=range(N_QUBITS))
+
+    n = len(X_scaled)
+    print("Building quantum kernel Gram matrix for Figure 7 "
+          f"({n*(n-1)//2} circuit evaluations, may take a minute)...")
+    K_quantum = np.ones((n, n))
+    for i in range(n):
+        for j in range(i + 1, n):
+            val = float(kernel_circuit(X_scaled[i], X_scaled[j])[0])
+            K_quantum[i, j] = val
+            K_quantum[j, i] = val
+
+    K_rbf = rbf_kernel(X_scaled, gamma=1.0 / X_scaled.shape[1])
+
+    # sort samples by class for a block-diagonal-friendly display
+    order = np.argsort(y)
+    K_quantum_sorted = K_quantum[np.ix_(order, order)]
+    K_rbf_sorted = K_rbf[np.ix_(order, order)]
+    sorted_labels = [LABEL_SHORT[class_names[c]] for c in y[order]]
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 5))
+    for ax, K, title in zip(axes, [K_quantum_sorted, K_rbf_sorted],
+                             ["Quantum kernel (amplitude-embedding fidelity)",
+                              "Classical RBF kernel"]):
+        im = ax.imshow(K, cmap="viridis", vmin=0, vmax=1)
+        ax.set_xticks(range(n))
+        ax.set_yticks(range(n))
+        ax.set_xticklabels(sorted_labels, rotation=90, fontsize=6)
+        ax.set_yticklabels(sorted_labels, fontsize=6)
+        ax.set_title(title, fontsize=10)
+        fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+    fig.suptitle("QSVM quantum kernel vs. classical RBF kernel (75 mRMR genes, all 21 samples)", y=1.03)
+    fig.tight_layout()
+    save_fig(fig, "fig7_kernel_heatmaps", (
+        "Figure 7. Gram matrices for (left) the quantum kernel used by QSVM "
+        "(amplitude-embedding state fidelity, 7 qubits) and (right) a classical "
+        "RBF kernel, both computed on the same 75 mRMR-selected genes and all 21 "
+        "samples (mRMR fit on the full dataset for this visualization only -- not "
+        "the nested per-fold selection used for the reported LOOCV accuracy). "
+        "Samples are sorted by class along both axes. Brighter blocks along the "
+        "diagonal indicate within-class similarity captured by each kernel."
+    ))
+
+
+# ============================================================
+# Figure 8: mRMR gene-selection stability across LOOCV folds
+# ============================================================
+def figure_mrmr_stability():
+    path = "gene_expression_labeled.csv"
+    if not os.path.exists(path):
+        print(f"SKIPPED Figure 8: {path} not found")
+        return
+    from sklearn.model_selection import LeaveOneOut
+    from mrmr import mrmr_classif
+    from sklearn.preprocessing import LabelEncoder
+
+    df = pd.read_csv(path, index_col=0)
+    X = df.drop(columns=["label"]).reset_index(drop=True)
+    y_raw = df["label"].reset_index(drop=True)
+    le = LabelEncoder()
+    y = le.fit_transform(y_raw)
+
+    N_FEATURES = 75
+    PREFILTER = 3000
+    loo = LeaveOneOut()
+    selected_gene_sets = []
+
+    print("Recomputing per-fold mRMR selection for Figure 8's stability diagnostic "
+          "(refits mRMR 21 times, same as phase5/phase6 -- may take a while)...")
+    for fold, (train_idx, test_idx) in enumerate(loo.split(X), start=1):
+        X_train = X.iloc[train_idx]
+        y_train = y[train_idx]
+        top_var_genes = X_train.var().sort_values(ascending=False).index[:PREFILTER]
+        X_train_pf = X_train[top_var_genes]
+        y_train_series = pd.Series(y_train, index=X_train_pf.index)
+        selected = mrmr_classif(X=X_train_pf, y=y_train_series, K=N_FEATURES, show_progress=False)
+        selected_gene_sets.append(set(selected))
+        print(f"  fold {fold}/21 done")
+
+    n_folds = len(selected_gene_sets)
+    jaccard_matrix = np.ones((n_folds, n_folds))
+    for i in range(n_folds):
+        for j in range(i + 1, n_folds):
+            inter = len(selected_gene_sets[i] & selected_gene_sets[j])
+            union = len(selected_gene_sets[i] | selected_gene_sets[j])
+            val = inter / union if union else 0.0
+            jaccard_matrix[i, j] = val
+            jaccard_matrix[j, i] = val
+
+    gene_fold_counts = {}
+    for s in selected_gene_sets:
+        for g in s:
+            gene_fold_counts[g] = gene_fold_counts.get(g, 0) + 1
+    freq_values = sorted(gene_fold_counts.values(), reverse=True)
+    always_selected = sum(1 for c in gene_fold_counts.values() if c == n_folds)
+    mean_jaccard = float(np.mean(jaccard_matrix[np.triu_indices(n_folds, k=1)]))
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8))
+
+    ax = axes[0]
+    im = ax.imshow(jaccard_matrix, cmap="viridis", vmin=0, vmax=1)
+    ax.set_xlabel("Fold")
+    ax.set_ylabel("Fold")
+    ax.set_title(f"Pairwise Jaccard similarity\n(mean = {mean_jaccard:.3f})")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+
+    ax2 = axes[1]
+    ax2.bar(range(len(freq_values)), freq_values, color="#4C72B0", width=1.0)
+    ax2.axhline(n_folds, color="red", linestyle="--", linewidth=1,
+                label=f"{always_selected} genes in all {n_folds} folds")
+    ax2.set_xlabel("Gene rank (by selection frequency)")
+    ax2.set_ylabel("Number of folds selected in")
+    ax2.set_title("mRMR gene selection frequency distribution")
+    ax2.legend(frameon=False, fontsize=9)
+
+    fig.tight_layout()
+    save_fig(fig, "fig8_mrmr_stability", (
+        f"Figure 8. mRMR feature-selection stability across the 21 nested LOOCV "
+        f"folds. (Left) Pairwise Jaccard similarity between each fold's selected "
+        f"75-gene set (mean = {mean_jaccard:.3f}). (Right) Distribution of how many "
+        f"of the 21 folds each gene was selected in, sorted by frequency; "
+        f"{always_selected} of the 75 selected genes were selected in every single "
+        f"fold, offered as evidence of a reproducible biological signal rather than "
+        f"noise-driven feature selection."
+    ))
+
+
+# ============================================================
+# Figure 9: Six-model pairwise McNemar heatmap
+# ============================================================
+def figure_mcnemar_heatmap():
+    path = "final_six_model_mcnemar.csv"
+    if not os.path.exists(path):
+        print(f"SKIPPED Figure 9: {path} not found")
+        return
+    df = pd.read_csv(path)
+    models = sorted(set(df["model_a"]).union(set(df["model_b"])),
+                     key=lambda m: MODEL_COLUMNS_ORDER.index(m) if m in MODEL_COLUMNS_ORDER else 99)
+    n = len(models)
+    p_matrix = np.ones((n, n))
+    for _, row in df.iterrows():
+        i, j = models.index(row["model_a"]), models.index(row["model_b"])
+        p_matrix[i, j] = row["p_value"]
+        p_matrix[j, i] = row["p_value"]
+
+    pretty_models = [pretty(m) for m in models]
+
+    fig, ax = plt.subplots(figsize=(6.5, 5.5))
+    im = ax.imshow(p_matrix, cmap="RdYlGn", vmin=0, vmax=1)
+    for i in range(n):
+        for j in range(n):
+            txt = "--" if i == j else f"{p_matrix[i, j]:.3f}"
+            color = "white" if (i != j and p_matrix[i, j] < 0.1) else "black"
+            ax.text(j, i, txt, ha="center", va="center", fontsize=8, color=color)
+    ax.set_xticks(range(n))
+    ax.set_yticks(range(n))
+    ax.set_xticklabels(pretty_models, rotation=45, ha="right")
+    ax.set_yticklabels(pretty_models)
+    ax.set_title("Pairwise exact McNemar p-values\n(all six models, n=21 LOOCV folds)")
+    fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="p-value")
+    fig.tight_layout()
+    save_fig(fig, "fig9_mcnemar_heatmap", (
+        "Figure 9. Pairwise exact McNemar test p-values for all six evaluated "
+        "models under nested LOOCV (n=21 folds). Green shading indicates larger "
+        "p-values (differences not statistically distinguishable at this sample "
+        "size); redder shading indicates smaller p-values. Only XGBoost's collapse "
+        "produces p<0.05 comparisons against every other model; all other pairwise "
+        "differences are not statistically distinguishable at n=21 and should not "
+        "be over-interpreted."
+    ))
 
 # ============================================================
 # Run everything
