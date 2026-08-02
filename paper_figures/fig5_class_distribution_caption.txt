@@ -1,0 +1,1 @@
+Figure 5. Class distribution of the GSE7869 dataset used in this study (n=21 samples across 5 classes: Small_Cyst=5, Medium_Cyst=5, Large_Cyst=3, MCT=5, Normal_Control=3). Note the substantial class imbalance, particularly for Large_Cyst and Normal_Control (n=3 each), which motivated the use of Leave-One-Out CV and class-balanced weighting rather than standard k-fold CV.
