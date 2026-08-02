@@ -62,6 +62,7 @@ MODEL_COLORS = {
     "QSVM": "#8172B3", "VQC": "#937860", "VQC_amplitude": "#937860",
     "VQC_angle": "#CCB974",
 }
+MODEL_COLUMNS_ORDER = ["RF_pred", "XGB_pred", "MLP_pred", "SVM_pred", "QSVM_pred", "VQC_pred"]
 
 
 def save_fig(fig, name, caption):
