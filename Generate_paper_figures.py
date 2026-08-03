@@ -76,12 +76,14 @@ MODEL_COLUMNS_ORDER = ["RF_pred", "XGB_pred", "MLP_pred", "SVM_pred", "QSVM_pred
 
 
 def save_fig(fig, name, caption):
-    path = os.path.join(OUTDIR, f"{name}.png")
-    fig.savefig(path, dpi=300, bbox_inches="tight")
+    png_path = os.path.join(OUTDIR, f"{name}.png")
+    pdf_path = os.path.join(OUTDIR, f"{name}.pdf")
+    fig.savefig(png_path, dpi=300, bbox_inches="tight")
+    fig.savefig(pdf_path, bbox_inches="tight")
     plt.close(fig)
     with open(os.path.join(OUTDIR, f"{name}_caption.txt"), "w") as f:
         f.write(caption)
-    print(f"Saved {path}")
+    print(f"Saved {png_path} and {pdf_path}")
 
 
 def pretty(col):
