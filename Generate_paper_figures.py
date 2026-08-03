@@ -611,14 +611,42 @@ def figure_roc_curves():
 # Run everything
 # ============================================================
 if __name__ == "__main__":
-    print(f"Output directory: ./{OUTDIR}/\n")
+
+    print("\n========== Figure Generation ==========")
+    print("1. Generate ALL figures")
+    print("2. Generate only essential figures (Recommended)")
+    print("3. Generate only heavy figures")
+    print("=======================================")
+
+    choice = input("Enter your choice (1-3): ").strip()
+
+    print(f"\nOutput directory: ./{OUTDIR}/\n")
+
+    # Essential figures (always generated)
     figure_model_comparison()
     figure_confusion_grid()
     figure_vqc_ablation_combined()
     figure_class_distribution()
     figure_pca_scatter()
-    figure_kernel_heatmaps()
-    figure_mrmr_stability()
     figure_mcnemar_heatmap()
-    figure_roc_curves()
-    print(f"\nDone. Check ./{OUTDIR}/ for PNGs + caption .txt files + data CSVs.")
+
+    # Heavy figures
+    if choice == "1":
+        print("\nGenerating heavy figures...")
+        figure_kernel_heatmaps()
+        figure_mrmr_stability()
+        figure_roc_curves()
+
+    elif choice == "2":
+        print("\nSkipping heavy figures (Recommended mode).")
+
+    elif choice == "3":
+        print("\nGenerating only heavy figures...")
+        figure_kernel_heatmaps()
+        figure_mrmr_stability()
+        figure_roc_curves()
+
+    else:
+        print("\nInvalid choice. Using Recommended mode (Essential figures only).")
+
+    print(f"\nDone. Check ./{OUTDIR}/ for PNGs, PDFs, caption .txt files, and data CSVs.")
