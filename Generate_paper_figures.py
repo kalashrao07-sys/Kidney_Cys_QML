@@ -446,80 +446,74 @@ def figure_kernel_heatmaps():
 def figure_mrmr_stability():
     path = "gene_expression_labeled.csv"
     if not os.path.exists(path):
-        print(f"SKIPPED Figure 8: {path} not found")
+        print(f"SKIPPED mRMR stability figure: {path} not found")
         return
     from sklearn.model_selection import LeaveOneOut
-    from mrmr import mrmr_classif
     from sklearn.preprocessing import LabelEncoder
+    from mrmr import mrmr_classif
 
     df = pd.read_csv(path, index_col=0)
     X = df.drop(columns=["label"]).reset_index(drop=True)
-    y_raw = df["label"].reset_index(drop=True)
-    le = LabelEncoder()
-    y = le.fit_transform(y_raw)
+    y = LabelEncoder().fit_transform(df["label"].reset_index(drop=True))
 
-    N_FEATURES = 75
-    PREFILTER = 3000
+    N_FEATURES, PREFILTER = 75, 3000
     loo = LeaveOneOut()
     selected_gene_sets = []
-
-    print("Recomputing per-fold mRMR selection for Figure 8's stability diagnostic "
-          "(refits mRMR 21 times, same as phase5/phase6 -- may take a while)...")
-    for fold, (train_idx, test_idx) in enumerate(loo.split(X), start=1):
+    print("Recomputing per-fold mRMR selection for the stability figure "
+          "(21 refits -- may take a while)...")
+    for fold, (train_idx, _) in enumerate(loo.split(X), start=1):
         X_train = X.iloc[train_idx]
         y_train = y[train_idx]
-        top_var_genes = X_train.var().sort_values(ascending=False).index[:PREFILTER]
-        X_train_pf = X_train[top_var_genes]
-        y_train_series = pd.Series(y_train, index=X_train_pf.index)
-        selected = mrmr_classif(X=X_train_pf, y=y_train_series, K=N_FEATURES, show_progress=False)
-        selected_gene_sets.append(set(selected))
+        top_var = X_train.var().sort_values(ascending=False).index[:PREFILTER]
+        X_train_pf = X_train[top_var]
+        y_series = pd.Series(y_train, index=X_train_pf.index)
+        sel = mrmr_classif(X=X_train_pf, y=y_series, K=N_FEATURES, show_progress=False)
+        selected_gene_sets.append(set(sel))
         print(f"  fold {fold}/21 done")
 
     n_folds = len(selected_gene_sets)
-    jaccard_matrix = np.ones((n_folds, n_folds))
+    jmat = np.ones((n_folds, n_folds))
     for i in range(n_folds):
         for j in range(i + 1, n_folds):
             inter = len(selected_gene_sets[i] & selected_gene_sets[j])
             union = len(selected_gene_sets[i] | selected_gene_sets[j])
             val = inter / union if union else 0.0
-            jaccard_matrix[i, j] = val
-            jaccard_matrix[j, i] = val
+            jmat[i, j] = jmat[j, i] = val
+    mean_jaccard = float(np.mean(jmat[np.triu_indices(n_folds, k=1)]))
 
-    gene_fold_counts = {}
+    gene_counts = {}
     for s in selected_gene_sets:
         for g in s:
-            gene_fold_counts[g] = gene_fold_counts.get(g, 0) + 1
-    freq_values = sorted(gene_fold_counts.values(), reverse=True)
-    always_selected = sum(1 for c in gene_fold_counts.values() if c == n_folds)
-    mean_jaccard = float(np.mean(jaccard_matrix[np.triu_indices(n_folds, k=1)]))
+            gene_counts[g] = gene_counts.get(g, 0) + 1
+    freq = sorted(gene_counts.values(), reverse=True)
+    always_selected = sum(1 for c in gene_counts.values() if c == n_folds)
 
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.8))
-
     ax = axes[0]
-    im = ax.imshow(jaccard_matrix, cmap="viridis", vmin=0, vmax=1)
-    ax.set_xlabel("Fold")
-    ax.set_ylabel("Fold")
-    ax.set_title(f"Pairwise Jaccard similarity\n(mean = {mean_jaccard:.3f})")
+    im = ax.imshow(jmat, cmap="viridis", vmin=0, vmax=1)
+    ax.set_xlabel("Fold"); ax.set_ylabel("Fold")
+    ax.set_title("Pairwise Jaccard similarity")
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
     ax2 = axes[1]
-    ax2.bar(range(len(freq_values)), freq_values, color="#4C72B0", width=1.0)
+    ax2.bar(range(len(freq)), freq, color="#4C72B0", width=1.0)
     ax2.axhline(n_folds, color="red", linestyle="--", linewidth=1,
-                label=f"{always_selected} genes in all {n_folds} folds")
+                label=f"{always_selected} genes selected in all {n_folds} folds")
     ax2.set_xlabel("Gene rank (by selection frequency)")
     ax2.set_ylabel("Number of folds selected in")
-    ax2.set_title("mRMR gene selection frequency distribution")
-    ax2.legend(frameon=False, fontsize=9)
+    ax2.set_title("Selection frequency distribution")
+    ax2.legend(frameon=False)
 
+    fig.suptitle(f"mRMR gene-selection stability across nested LOOCV folds "
+                 f"(mean pairwise Jaccard = {mean_jaccard:.3f})", y=1.03)
     fig.tight_layout()
     save_fig(fig, "fig8_mrmr_stability", (
         f"Figure 8. mRMR feature-selection stability across the 21 nested LOOCV "
-        f"folds. (Left) Pairwise Jaccard similarity between each fold's selected "
-        f"75-gene set (mean = {mean_jaccard:.3f}). (Right) Distribution of how many "
-        f"of the 21 folds each gene was selected in, sorted by frequency; "
-        f"{always_selected} of the 75 selected genes were selected in every single "
-        f"fold, offered as evidence of a reproducible biological signal rather than "
-        f"noise-driven feature selection."
+        f"folds (mean pairwise Jaccard similarity = {mean_jaccard:.3f}). (Left) "
+        f"Pairwise Jaccard similarity between each fold's selected 75-gene set. "
+        f"(Right) Per-gene selection frequency across folds; {always_selected} of "
+        f"the 75 genes were selected in every fold, offered as evidence of a "
+        f"reproducible biological signal rather than noise-driven selection."
     ))
 
 
