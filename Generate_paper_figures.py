@@ -557,6 +557,55 @@ def figure_mcnemar_heatmap():
     ))
 
 # ============================================================
+# Figure 10: Combined ROC curves for all six models
+# ============================================================
+def figure_roc_curves():
+    """Combined macro one-vs-rest ROC, pooled across LOOCV folds, all six
+    models. REQUIRES per-sample per-class predicted PROBABILITIES saved to
+    'all_models_fold_probabilities.csv' -- columns: true_label, plus
+    '<Model>_<ClassName>' probability columns for every model/class pair.
+    None of phase3/4/5/6 currently save this (only hard *_pred labels).
+    See the patch note after this function."""
+    path = "all_models_fold_probabilities.csv"
+    if not os.path.exists(path):
+        print(f"SKIPPED Figure: combined ROC curves -- {path} not found.\n"
+              "  ROC needs pooled predicted probabilities, which your phase3/4/5/6 "
+              "scripts don't currently save to disk (only hard labels). This can't "
+              "be reconstructed from existing CSVs -- see patch note below the "
+              "script for the minimal addition needed.")
+        return
+
+    from sklearn.preprocessing import label_binarize
+    from sklearn.metrics import roc_curve, auc as auc_fn
+
+    df = pd.read_csv(path)
+    y_true_bin = label_binarize(df["true_label"].values, classes=LABELS)
+
+    fig, ax = plt.subplots(figsize=(6.5, 6))
+    for model in MODEL_COLUMNS_ORDER:
+        short = model.replace("_pred", "")
+        prob_cols = [f"{short}_{lab}" for lab in LABELS]
+        if not all(c in df.columns for c in prob_cols):
+            continue
+        y_score = df[prob_cols].values
+        fpr, tpr, _ = roc_curve(y_true_bin.ravel(), y_score.ravel())
+        roc_auc = auc_fn(fpr, tpr)
+        ax.plot(fpr, tpr, label=f"{short} (AUC={roc_auc:.3f})",
+                color=MODEL_COLORS.get(short), linewidth=1.8)
+
+    ax.plot([0, 1], [0, 1], linestyle="--", color="gray", linewidth=1)
+    ax.set_xlabel("False Positive Rate")
+    ax.set_ylabel("True Positive Rate")
+    ax.set_title("Combined ROC (macro one-vs-rest, pooled across LOOCV folds)")
+    ax.legend(frameon=False, loc="lower right")
+    fig.tight_layout()
+    save_fig(fig, "fig10_roc_curves", (
+        "Figure 10. Combined ROC curves for all six models, macro one-vs-rest, "
+        "pooled across the 21 LOOCV folds' predicted class probabilities. AUC "
+        "shown per model in the legend."
+    ))
+
+# ============================================================
 # Run everything
 # ============================================================
 if __name__ == "__main__":
@@ -569,4 +618,5 @@ if __name__ == "__main__":
     figure_kernel_heatmaps()
     figure_mrmr_stability()
     figure_mcnemar_heatmap()
+    figure_roc_curves()
     print(f"\nDone. Check ./{OUTDIR}/ for PNGs + caption .txt files + data CSVs.")
