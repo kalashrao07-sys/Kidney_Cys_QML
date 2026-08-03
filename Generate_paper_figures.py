@@ -55,12 +55,22 @@ plt.rcParams.update({
     "font.family": "serif",
     "axes.spines.top": False,
     "axes.spines.right": False,
+    "axes.titlesize": 12,
+    "axes.labelsize": 11,
+    "legend.fontsize": 9,
+    "xtick.labelsize": 9,
+    "ytick.labelsize": 9,
     "figure.dpi": 100,
 })
+
 MODEL_COLORS = {
     "RF": "#4C72B0", "XGB": "#DD8452", "MLP": "#55A868", "SVM": "#C44E52",
-    "QSVM": "#8172B3", "VQC": "#937860", "VQC_amplitude": "#937860",
-    "VQC_angle": "#CCB974",
+    "QSVM": "#8172B3", "VQC": "#937860",
+    "VQC-amplitude": "#937860", "VQC-angle": "#CCB974",
+}
+CLASS_COLORS = {
+    "Small_Cyst": "#4C72B0", "Medium_Cyst": "#DD8452", "Large_Cyst": "#55A868",
+    "MCT": "#C44E52", "Normal_Control": "#8172B3",
 }
 MODEL_COLUMNS_ORDER = ["RF_pred", "XGB_pred", "MLP_pred", "SVM_pred", "QSVM_pred", "VQC_pred"]
 
