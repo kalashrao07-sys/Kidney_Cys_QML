@@ -78,8 +78,10 @@ MODEL_COLUMNS_ORDER = ["RF_pred", "XGB_pred", "MLP_pred", "SVM_pred", "QSVM_pred
 def save_fig(fig, name, caption):
     png_path = os.path.join(OUTDIR, f"{name}.png")
     pdf_path = os.path.join(OUTDIR, f"{name}.pdf")
+    svg_path = os.path.join(OUTDIR, f"{name}.svg")
     fig.savefig(png_path, dpi=300, bbox_inches="tight")
     fig.savefig(pdf_path, bbox_inches="tight")
+    fig.savefig(svg_path, bbox_inches="tight")
     plt.close(fig)
     with open(os.path.join(OUTDIR, f"{name}_caption.txt"), "w") as f:
         f.write(caption)
@@ -122,7 +124,7 @@ def figure_model_comparison():
     for bars in (bars1, bars2):
         for b in bars:
             ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.01,
-                    f"{b.get_height():.3f}", ha="center", va="bottom", fontsize=8)
+                    f"{b.get_height()*100:.1f}%", ha="center", va="bottom", fontsize=8)
     ax.set_xticks(x)
     ax.set_xticklabels(summary["model"], rotation=20, ha="right")
     ax.set_ylabel("Score")
@@ -165,11 +167,11 @@ def figure_confusion_grid():
             for c in range(cm.shape[1]):
                 val = cm[r, c]
                 color = "white" if val > cm.max() / 2 else "black"
-                ax.text(c, r, str(val), ha="center", va="center", color=color, fontsize=9)
+                ax.text(c, r, str(val), ha="center", va="center", color=color, fontsize=10)
         ax.set_xticks(range(len(short_labels)))
         ax.set_yticks(range(len(short_labels)))
-        ax.set_xticklabels(short_labels, rotation=45, ha="right", fontsize=8)
-        ax.set_yticklabels(short_labels, fontsize=8)
+        ax.set_xticklabels(short_labels, rotation=45, ha="right", fontsize=10)
+        ax.set_yticklabels(short_labels, fontsize=10)
         ax.set_title(pretty(col), fontsize=11)
         if i % ncols == 0:
             ax.set_ylabel("True")
@@ -249,7 +251,7 @@ def figure_vqc_ablation_combined():
                     [acc_amp_final, acc_ang_final], color=["#937860", "#CCB974"], width=0.5)
     for b in bars:
         ax2.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.02,
-                  f"{b.get_height():.3f}", ha="center", fontsize=11)
+                  f"{b.get_height()*100:.1f}%", ha="center", fontsize=11)
     ax2.set_ylim(0, 1.0)
     ax2.set_ylabel("LOOCV accuracy (n=21)")
     sig_txt = (f"McNemar exact p = {p:.4f}" + ("  (significant)" if p < 0.05 else "  (n.s.)")
