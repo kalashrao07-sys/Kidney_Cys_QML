@@ -122,7 +122,7 @@ def figure_model_comparison():
     for bars in (bars1, bars2):
         for b in bars:
             ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.01,
-                    f"{b.get_height():.2f}", ha="center", va="bottom", fontsize=8)
+                    f"{b.get_height():.3f}", ha="center", va="bottom", fontsize=8)
     ax.set_xticks(x)
     ax.set_xticklabels(summary["model"], rotation=20, ha="right")
     ax.set_ylabel("Score")
@@ -191,94 +191,84 @@ def figure_confusion_grid():
 # ============================================================
 # Figure 3: VQC train/test generalization gap (amplitude vs angle)
 # ============================================================
-def figure_vqc_generalization_gap():
-    amp_path = "vqc_loocv_fold_results.csv"
-    ang_path = "vqc_angle_loocv_fold_results.csv"
-    if not (os.path.exists(amp_path) and os.path.exists(ang_path)):
-        print(f"SKIPPED Figure 3: need both {amp_path} and {ang_path}")
-        return
-
-    amp = pd.read_csv(amp_path)
-    ang = pd.read_csv(ang_path)
-
-    amp_test_correct = (amp["VQC_pred"] == amp["true_label"]).astype(int)
-    ang_test_correct = (ang["VQC_angle_pred"] == ang["true_label"]).astype(int)
-
-    amp_train_acc, amp_test_acc = amp["train_acc"].mean(), amp_test_correct.mean()
-    ang_train_acc, ang_test_acc = ang["train_acc"].mean(), ang_test_correct.mean()
-
-    fig, axes = plt.subplots(1, 2, figsize=(9, 4.2))
-
-    # Panel A: train vs test accuracy bars
-    ax = axes[0]
-    x = np.arange(2)
-    width = 0.35
-    ax.bar(x - width / 2, [amp_train_acc, ang_train_acc], width, label="Mean train_acc", color="#937860")
-    ax.bar(x + width / 2, [amp_test_acc, ang_test_acc], width, label="LOOCV test accuracy", color="#4C72B0")
-    ax.set_xticks(x)
-    ax.set_xticklabels(["VQC-amplitude\n(75 genes, 7 qubits)", "VQC-angle\n(10 genes, 10 qubits)"])
-    ax.set_ylim(0, 1.05)
-    ax.set_ylabel("Accuracy")
-    ax.set_title("Generalization gap by encoding")
-    ax.legend(frameon=False, fontsize=9)
-    for xi, (tr, te) in enumerate([(amp_train_acc, amp_test_acc), (ang_train_acc, ang_test_acc)]):
-        ax.annotate(f"gap={tr - te:+.3f}", (xi, max(tr, te) + 0.06), ha="center", fontsize=9)
-
-    # Panel B: per-fold train_acc distribution
-    ax2 = axes[1]
-    ax2.boxplot([amp["train_acc"], ang["train_acc"]], labels=["VQC-amplitude", "VQC-angle"])
-    ax2.set_ylabel("Per-fold train_acc")
-    ax2.set_title("Per-fold training accuracy spread")
-    ax2.set_ylim(0, 1.05)
-
-    fig.tight_layout()
-    save_fig(fig, "fig3_vqc_generalization_gap", (
-        f"Figure 3. (A) Mean training accuracy vs. LOOCV test accuracy for the two "
-        f"VQC encoding variants. VQC-amplitude shows no train-test gap "
-        f"({amp_train_acc:.3f} vs {amp_test_acc:.3f}), while VQC-angle shows a "
-        f"pronounced gap ({ang_train_acc:.3f} vs {ang_test_acc:.3f}), indicating "
-        f"overfitting on the smaller 10-gene feature set. (B) Distribution of "
-        f"per-fold training accuracy across the 21 LOOCV folds for each variant."
-    ))
-
 
 # ============================================================
 # Figure 4: Encoding ablation accuracy comparison + McNemar annotation
 # ============================================================
-def figure_encoding_ablation():
-    path = "vqc_encoding_ablation.csv"
-    if not os.path.exists(path):
-        print(f"SKIPPED Figure 4: {path} not found")
+def figure_vqc_ablation_combined():
+    """Merged replacement for the old generalization-gap figure + encoding-
+    ablation figure. Same two VQC diagnostics, one figure, two panels."""
+    amp_path = "vqc_loocv_fold_results.csv"
+    ang_path = "vqc_angle_loocv_fold_results.csv"
+    if not (os.path.exists(amp_path) and os.path.exists(ang_path)):
+        print(f"SKIPPED VQC ablation figure: need both {amp_path} and {ang_path}")
         return
-    df = pd.read_csv(path)
-    acc_amp = (df["VQC_pred"] == df["true_label"]).mean()
-    acc_ang = (df["VQC_angle_pred"] == df["true_label"]).mean()
 
-    from scipy.stats import binomtest
-    ca = (df["VQC_pred"] == df["true_label"]).astype(int).values
-    cb = (df["VQC_angle_pred"] == df["true_label"]).astype(int).values
-    n01 = int(((ca == 0) & (cb == 1)).sum())
-    n10 = int(((ca == 1) & (cb == 0)).sum())
-    n_disc = n01 + n10
-    p = 1.0 if n_disc == 0 else binomtest(min(n01, n10), n_disc, 0.5).pvalue
+    amp = pd.read_csv(amp_path)
+    ang = pd.read_csv(ang_path)
+    amp_train_acc = amp["train_acc"].mean()
+    ang_train_acc = ang["train_acc"].mean()
+    amp_test_acc = (amp["VQC_pred"] == amp["true_label"]).mean()
+    ang_test_acc = (ang["VQC_angle_pred"] == ang["true_label"]).mean()
 
-    fig, ax = plt.subplots(figsize=(5, 4.5))
-    bars = ax.bar(["VQC-amplitude\n(75 genes)", "VQC-angle\n(10 genes)"],
-                  [acc_amp, acc_ang], color=["#937860", "#CCB974"], width=0.5)
+    p = None
+    acc_amp_final, acc_ang_final = amp_test_acc, ang_test_acc
+    if os.path.exists("vqc_encoding_ablation.csv"):
+        from scipy.stats import binomtest
+        df = pd.read_csv("vqc_encoding_ablation.csv")
+        ca = (df["VQC_pred"] == df["true_label"]).astype(int).values
+        cb = (df["VQC_angle_pred"] == df["true_label"]).astype(int).values
+        n01 = int(((ca == 0) & (cb == 1)).sum())
+        n10 = int(((ca == 1) & (cb == 0)).sum())
+        n_disc = n01 + n10
+        p = 1.0 if n_disc == 0 else binomtest(min(n01, n10), n_disc, 0.5).pvalue
+        acc_amp_final, acc_ang_final = ca.mean(), cb.mean()
+
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4.5))
+
+    # Panel A: generalization gap (train vs test accuracy)
+    ax = axes[0]
+    x = np.arange(2)
+    width = 0.35
+    ax.bar(x - width / 2, [amp_train_acc, ang_train_acc], width,
+           label="Mean train_acc", color="#937860")
+    ax.bar(x + width / 2, [amp_test_acc, ang_test_acc], width,
+           label="LOOCV test accuracy", color="#4C72B0")
+    ax.set_xticks(x)
+    ax.set_xticklabels(["VQC-amplitude\n(75 genes, 7 qubits)", "VQC-angle\n(10 genes, 10 qubits)"])
+    ax.set_ylim(0, 1.15)
+    ax.set_ylabel("Accuracy")
+    ax.set_title("(A) Generalization gap by encoding")
+    ax.legend(frameon=False)
+    for xi, (tr, te) in enumerate([(amp_train_acc, amp_test_acc), (ang_train_acc, ang_test_acc)]):
+        ax.annotate(f"gap={tr - te:+.3f}", (xi, max(tr, te) + 0.06), ha="center", fontsize=9)
+
+    # Panel B: final accuracy + McNemar
+    ax2 = axes[1]
+    bars = ax2.bar(["VQC-amplitude\n(75 genes)", "VQC-angle\n(10 genes)"],
+                    [acc_amp_final, acc_ang_final], color=["#937860", "#CCB974"], width=0.5)
     for b in bars:
-        ax.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.02,
-                f"{b.get_height():.3f}", ha="center", fontsize=11)
-    ax.set_ylim(0, 1.0)
-    ax.set_ylabel("LOOCV accuracy (n=21)")
-    sig_txt = f"McNemar exact p = {p:.4f}" + ("  (significant)" if p < 0.05 else "  (n.s.)")
-    ax.set_title(f"VQC encoding ablation\n{sig_txt}", fontsize=11)
+        ax2.text(b.get_x() + b.get_width() / 2, b.get_height() + 0.02,
+                  f"{b.get_height():.3f}", ha="center", fontsize=11)
+    ax2.set_ylim(0, 1.0)
+    ax2.set_ylabel("LOOCV accuracy (n=21)")
+    sig_txt = (f"McNemar exact p = {p:.4f}" + ("  (significant)" if p < 0.05 else "  (n.s.)")
+               if p is not None else "vqc_encoding_ablation.csv not found")
+    ax2.set_title(f"(B) Encoding ablation\n{sig_txt}", fontsize=11)
+
     fig.tight_layout()
-    save_fig(fig, "fig4_encoding_ablation", (
-        f"Figure 4. Accuracy comparison between VQC-amplitude (75 mRMR-selected genes, "
-        f"7 qubits) and VQC-angle (10 mRMR-selected genes, 10 qubits), both under "
-        f"identical nested LOOCV, ansatz, and training budget. Exact McNemar test on "
-        f"paired per-fold correctness: p={p:.4f}. Note this ablation confounds encoding "
-        f"scheme with feature-set size; see Discussion/Limitations for interpretation."
+    p_txt = (f", with exact McNemar test on paired per-fold correctness: p={p:.4f}. "
+             f"Note this ablation confounds encoding scheme with feature-set size; "
+             f"see Discussion/Limitations for interpretation." if p is not None else ".")
+    save_fig(fig, "fig3_vqc_ablation_combined", (
+        f"Figure 3. VQC encoding ablation: amplitude (75 mRMR genes, 7 qubits) vs. "
+        f"angle (10 mRMR genes, 10 qubits), identical nested LOOCV/ansatz/training "
+        f"budget. (A) Mean per-fold training accuracy vs. LOOCV test accuracy -- "
+        f"VQC-amplitude gap {amp_train_acc - amp_test_acc:+.3f} "
+        f"({amp_train_acc:.3f} vs {amp_test_acc:.3f}), VQC-angle gap "
+        f"{ang_train_acc - ang_test_acc:+.3f} ({ang_train_acc:.3f} vs {ang_test_acc:.3f}), "
+        f"consistent with overfitting on the smaller feature set. "
+        f"(B) Final LOOCV accuracy for each encoding{p_txt}"
     ))
 
 # ============================================================
