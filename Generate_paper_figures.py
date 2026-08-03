@@ -529,11 +529,10 @@ def figure_mrmr_stability():
 def figure_mcnemar_heatmap():
     path = "final_six_model_mcnemar.csv"
     if not os.path.exists(path):
-        print(f"SKIPPED Figure 9: {path} not found")
+        print(f"SKIPPED McNemar heatmap: {path} not found")
         return
     df = pd.read_csv(path)
-    models = sorted(set(df["model_a"]).union(set(df["model_b"])),
-                     key=lambda m: MODEL_COLUMNS_ORDER.index(m) if m in MODEL_COLUMNS_ORDER else 99)
+    models = [m for m in MODEL_COLUMNS_ORDER if m in set(df["model_a"]).union(df["model_b"])]
     n = len(models)
     p_matrix = np.ones((n, n))
     for _, row in df.iterrows():
@@ -542,29 +541,25 @@ def figure_mcnemar_heatmap():
         p_matrix[j, i] = row["p_value"]
 
     pretty_models = [pretty(m) for m in models]
-
     fig, ax = plt.subplots(figsize=(6.5, 5.5))
     im = ax.imshow(p_matrix, cmap="RdYlGn", vmin=0, vmax=1)
     for i in range(n):
         for j in range(n):
-            txt = "--" if i == j else f"{p_matrix[i, j]:.3f}"
-            color = "white" if (i != j and p_matrix[i, j] < 0.1) else "black"
+            txt = "--" if i == j else f"{p_matrix[i, j]:.4f}"
+            color = "white" if (i != j and p_matrix[i, j] < 0.15) else "black"
             ax.text(j, i, txt, ha="center", va="center", fontsize=8, color=color)
-    ax.set_xticks(range(n))
-    ax.set_yticks(range(n))
+    ax.set_xticks(range(n)); ax.set_yticks(range(n))
     ax.set_xticklabels(pretty_models, rotation=45, ha="right")
     ax.set_yticklabels(pretty_models)
-    ax.set_title("Pairwise exact McNemar p-values\n(all six models, n=21 LOOCV folds)")
+    ax.set_title("Pairwise exact McNemar p-values\n(six models, n=21 LOOCV folds)")
     fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04, label="p-value")
     fig.tight_layout()
     save_fig(fig, "fig9_mcnemar_heatmap", (
-        "Figure 9. Pairwise exact McNemar test p-values for all six evaluated "
-        "models under nested LOOCV (n=21 folds). Green shading indicates larger "
-        "p-values (differences not statistically distinguishable at this sample "
-        "size); redder shading indicates smaller p-values. Only XGBoost's collapse "
-        "produces p<0.05 comparisons against every other model; all other pairwise "
-        "differences are not statistically distinguishable at n=21 and should not "
-        "be over-interpreted."
+        "Figure 9. Pairwise exact McNemar test p-values (shown in each cell) for all "
+        "six evaluated models under nested LOOCV (n=21). Green = larger p-values "
+        "(not statistically distinguishable at this sample size); red = smaller "
+        "p-values. Only comparisons involving XGBoost's majority-class collapse "
+        "reach p<0.05; all other pairwise differences should not be over-interpreted."
     ))
 
 # ============================================================
@@ -574,8 +569,7 @@ if __name__ == "__main__":
     print(f"Output directory: ./{OUTDIR}/\n")
     figure_model_comparison()
     figure_confusion_grid()
-    figure_vqc_generalization_gap()
-    figure_encoding_ablation()
+    figure_vqc_ablation_combined()
     figure_class_distribution()
     figure_pca_scatter()
     figure_kernel_heatmaps()
