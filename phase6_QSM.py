@@ -187,6 +187,7 @@ loo = LeaveOneOut()
 y_pred_all, y_proba_all, y_true_all = [], [], []
 train_times, pred_times = [], []
 fold_log = []
+proba_log = []   
 selected_gene_sets = []
 
 for fold, (train_idx, test_idx) in enumerate(loo.split(X), start=1):
@@ -251,6 +252,12 @@ for fold, (train_idx, test_idx) in enumerate(loo.split(X), start=1):
         "QSVM_pred": class_names[pred], "QSVM_best_C": best_C,
     })
 
+# NEW: stash QSVM probabilities for the combined ROC figure
+    proba_row = {"fold": fold, "true_label": true_label}
+    for cls_idx, cls_name in enumerate(class_names):
+        proba_row[f"QSVM_{cls_name}"] = float(proba[cls_idx])
+    proba_log.append(proba_row)
+
 # ============================================================
 # mRMR feature-selection stability (same diagnostic as phase5,
 # recomputed here since this script reruns mRMR independently --
@@ -298,12 +305,14 @@ print("Confusion matrix (rows=true, cols=pred),", list(class_names))
 print(cm)
 
 pd.DataFrame(fold_log).to_csv("phase6_qsvm_fold_results.csv", index=False)
+pd.DataFrame(proba_log).to_csv("phase6_qsvm_fold_probabilities.csv", index=False)
+print("Saved: phase6_qsvm_fold_probabilities.csv (per-class QSVM probabilities)")
 summary = pd.DataFrame([{
     "model": "QSVM", "accuracy": acc, "precision_macro": prec, "recall_macro": rec,
     "f1_macro": f1, "roc_auc_macro_ovr": auc,
     "mean_train_time_s": np.mean(train_times), "mean_pred_time_s": np.mean(pred_times),
 }])
 summary.to_csv("phase6_qsvm_summary.csv", index=False)
-print("\nSaved: phase6_qsvm_fold_results.csv, phase6_qsvm_summary.csv")
+print("\nSaved: phase6_qsvm_fold_results.csv, phase6_qsvm_summary.csv, phase6_qsvm_fold_probabilities.csv")
 print("Combine this row with phase5_model_comparison_summary.csv and VQC's own")
 print("summary (from vqc_loocv_fold_results.csv) for the full six-model table.")
