@@ -149,6 +149,7 @@ results = {
 }
 y_true_all = []
 fold_log = []
+proba_log = []    # NEW: stores per-fold probabilities for ROC curves
 selected_gene_sets = []   # for the mRMR stability diagnostic
 
 for fold, (train_idx, test_idx) in enumerate(loo.split(X), start=1):
@@ -267,6 +268,25 @@ for fold, (train_idx, test_idx) in enumerate(loo.split(X), start=1):
     })
 
 # ============================================================
+# NEW: Save per-class probabilities for ROC curves
+# ============================================================
+proba_row = {
+    "fold": fold,
+    "true_label": true_label
+}
+
+for short_name, proba_vec in [
+    ("RF", rf_proba),
+    ("XGB", xgb_proba),
+    ("SVM", svm_proba),
+    ("MLP", mlp_proba)
+]:
+    for cls_idx, cls_name in enumerate(class_names):
+        proba_row[f"{short_name}_{cls_name}"] = float(proba_vec[cls_idx])
+
+proba_log.append(proba_row)
+
+# ============================================================
 # mRMR feature-selection stability diagnostic
 # ============================================================
 print("\n" + "=" * 70)
@@ -342,7 +362,24 @@ print(summary_df.to_string(index=False))
 # ============================================================
 # Save outputs
 # ============================================================
-pd.DataFrame(fold_log).to_csv("phase5_loocv_fold_results.csv", index=False)
-summary_df.to_csv("phase5_model_comparison_summary.csv", index=False)
-print("\nSaved: phase5_loocv_fold_results.csv, phase5_model_comparison_summary.csv")
+pd.DataFrame(fold_log).to_csv(
+    "phase5_loocv_fold_results.csv",
+    index=False
+)
+
+# ============================================================
+# NEW: Save probabilities for ROC curves
+# ============================================================
+pd.DataFrame(proba_log).to_csv(
+    "phase5_fold_probabilities.csv",
+    index=False
+)
+
+print("Saved: phase5_fold_probabilities.csv")
+
+summary_df.to_csv(
+    "phase5_model_comparison_summary.csv",
+    index=False
+)
+print("\nSaved: phase5_loocv_fold_results.csv, phase5_model_comparison_summary.csv, phase5_fold_probabilities.csv")
 print("Use these for your results tables / confusion matrices in the paper.")
