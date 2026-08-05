@@ -228,6 +228,7 @@ def init_weights():
 loo = LeaveOneOut()
 vqc_results = []
 fold_log = []
+proba_log = []   
 
 t_start = time.perf_counter()
 for fold, (train_idx, test_idx) in enumerate(loo.split(X), start=1):
@@ -287,6 +288,12 @@ for fold, (train_idx, test_idx) in enumerate(loo.split(X), start=1):
         "train_acc": float(train_acc),
     })
 
+# NEW: stash VQC probabilities for the combined ROC figure
+    proba_row = {"fold": fold, "true_label": true_label}
+    for cls_idx, cls_name in enumerate(class_names):
+        proba_row[f"VQC_{cls_name}"] = float(test_probs[0][cls_idx])
+    proba_log.append(proba_row)
+
 t_end = time.perf_counter()
 print(f"\nTotal VQC training+eval time for {len(X)} folds: {(t_end - t_start):.1f}s")
 
@@ -301,6 +308,8 @@ print(f"Overall accuracy: {accuracy_score(y_true, y_pred):.4f}")
 print(classification_report(y_true, y_pred, target_names=class_names, zero_division=0))
 
 pd.DataFrame(fold_log).to_csv("vqc_loocv_fold_results.csv", index=False)
+pd.DataFrame(proba_log).to_csv("vqc_fold_probabilities.csv", index=False)
+print("Saved: vqc_fold_probabilities.csv (per-class VQC probabilities)")
 print("Per-fold predictions saved to vqc_loocv_fold_results.csv")
 
 # ============================================================
