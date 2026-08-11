@@ -270,21 +270,21 @@ for fold, (train_idx, test_idx) in enumerate(loo.split(X), start=1):
 # ============================================================
 # NEW: Save per-class probabilities for ROC curves
 # ============================================================
-proba_row = {
+    proba_row = {
     "fold": fold,
     "true_label": true_label
 }
 
-for short_name, proba_vec in [
+    for short_name, proba_vec in [
     ("RF", rf_proba),
     ("XGB", xgb_proba),
     ("SVM", svm_proba),
     ("MLP", mlp_proba)
 ]:
-    for cls_idx, cls_name in enumerate(class_names):
-        proba_row[f"{short_name}_{cls_name}"] = float(proba_vec[cls_idx])
+        for cls_idx, cls_name in enumerate(class_names):
+            proba_row[f"{short_name}_{cls_name}"] = float(proba_vec[cls_idx])
 
-proba_log.append(proba_row)
+    proba_log.append(proba_row)
 
 # ============================================================
 # mRMR feature-selection stability diagnostic
