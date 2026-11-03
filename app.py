@@ -1,8 +1,9 @@
 """
 Kidney Cyst Gene Expression Classifier -- demo web app
 ----------------------------------------------------------------------
-Loads deployment_pipeline.joblib (built by train_production_pipeline.py)
-and classifies a user-uploaded gene expression sample.
+Loads deployment_pipeline.joblib (built by train_production_pipeline.py) plus
+rf_final.joblib / xgb_final.joblib / mlp_final.keras (built by
+add_models_to_pipeline.py) and classifies a user-uploaded gene expression sample.
 
 INPUT FORMAT REQUIRED (read this before demoing to anyone):
   - A CSV with ONE row per sample, columns = probe IDs (e.g. "1007_s_at",
@@ -22,12 +23,13 @@ INPUT FORMAT REQUIRED (read this before demoing to anyone):
     would quietly corrupt every prediction).
 
 Install once:
-    pip install streamlit scikit-learn pandas numpy joblib pennylane --break-system-packages
+    pip install streamlit scikit-learn pandas numpy joblib pennylane xgboost tensorflow --break-system-packages
 
 Run:
     streamlit run app.py
 """
 
+import os
 import numpy as np
 import pandas as pd
 import joblib
@@ -39,17 +41,37 @@ st.set_page_config(page_title="Kidney Cyst Gene Expression Classifier", layout="
 def load_pipeline():
     return joblib.load("deployment_pipeline.joblib")
 
+@st.cache_resource
+def load_extra_model(key):
+    """Lazy-load RF / XGBoost / MLP so a missing library never breaks the other models."""
+    if key == "rf":
+        return joblib.load("rf_final.joblib")
+    if key == "xgb":
+        return joblib.load("xgb_final.joblib")
+    if key == "mlp":
+        import tensorflow as tf
+        return tf.keras.models.load_model("mlp_final.keras")
+
 pipeline = load_pipeline()
 selected_genes = pipeline["selected_genes"]
 scaler = pipeline["scaler"]
 svm_final = pipeline["svm_final"]
 class_names = pipeline["class_names"]
 
+# label -> (internal key, model file needed, note shown under the selector)
+MODELS = {
+    "SVM-RBF (classical)":       ("svm",  None,               "Nested LOOCV accuracy: 90.48%"),
+    "QSVM (quantum kernel)":     ("qsvm", None,               "Nested LOOCV accuracy: 90.48%"),
+    "Random Forest (classical)": ("rf",   "rf_final.joblib",  "Nested LOOCV accuracy: 80.95%"),
+    "MLP (classical)":           ("mlp",  "mlp_final.keras",  "Nested LOOCV accuracy: 80.95% (seed-sensitive; another identical run gave 71.43%)"),
+    "XGBoost (classical)":       ("xgb",  "xgb_final.joblib", "Weak on this dataset: 23.81% in the reported LOOCV run. Use with caution."),
+}
+
 st.title("Kidney Cyst Gene Expression Classifier")
 st.caption(
-    "Classical (SVM-RBF) and quantum (QSVM) classifiers trained on GSE7869 "
-    "(21 samples, 5 classes). Both scored 90.48% under nested Leave-One-Out CV -- "
-    "see the paper for the full evaluation. This app runs the FINAL models, "
+    "Classical (SVM-RBF, Random Forest, XGBoost, MLP) and quantum (QSVM) classifiers trained on "
+    "GSE7869 (21 samples, 5 classes). SVM-RBF and QSVM both scored 90.48% under nested "
+    "Leave-One-Out CV -- see the paper for the full evaluation. This app runs the FINAL models, "
     "trained on all 21 samples, for actual use, not a repeat of that evaluation."
 )
 
@@ -60,7 +82,13 @@ st.warning(
     "app.py for why single-array RMA isn't meaningful without a frozen reference."
 )
 
-model_choice = st.radio("Model", ["SVM-RBF (classical)", "QSVM (quantum kernel)"])
+model_choice = st.radio("Model", list(MODELS.keys()))
+model_key, model_file, model_note = MODELS[model_choice]
+st.caption(model_note)
+
+if model_file and not os.path.exists(model_file):
+    st.error(f"{model_file} not found. Run `python add_models_to_pipeline.py` first.")
+    st.stop()
 
 uploaded = st.file_uploader("Upload a CSV: one row per sample, columns = probe IDs", type=["csv"])
 
@@ -86,10 +114,21 @@ if uploaded is not None:
     st.success(f"Loaded {X_user.shape[0]} sample(s), all {len(selected_genes)} required genes present.")
 
     if st.button("Classify"):
-        if model_choice.startswith("SVM"):
+        if model_key == "svm":
             preds = svm_final.predict(X_user_scaled)
             probas = svm_final.predict_proba(X_user_scaled)
-        else:
+
+        elif model_key in ("rf", "xgb"):
+            model = load_extra_model(model_key)
+            preds = model.predict(X_user_scaled)
+            probas = model.predict_proba(X_user_scaled)
+
+        elif model_key == "mlp":
+            model = load_extra_model("mlp")
+            probas = model.predict(X_user_scaled, verbose=0)
+            preds = np.argmax(probas, axis=1)
+
+        else:  # qsvm
             import pennylane as qml
             mm_scaler = pipeline["mm_scaler"]
             X_q_train = pipeline["X_q_scaled"]
@@ -118,7 +157,7 @@ if uploaded is not None:
             probas = qsvm_final.predict_proba(K_test)
 
         for i in range(len(preds)):
-            pred_label = class_names[preds[i]]
+            pred_label = class_names[int(preds[i])]
             st.subheader(f"Sample {i+1}: **{pred_label}**")
             proba_df = pd.DataFrame({
                 "Class": class_names,
