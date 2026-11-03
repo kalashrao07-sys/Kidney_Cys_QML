@@ -31,9 +31,12 @@ genes, scaler = pipe["selected_genes"], pipe["scaler"]
 svm_final, classes = pipe["svm_final"], list(pipe["class_names"])
 
 df = pd.read_csv(DATA_CSV, index_col=0)
-lab = df.iloc[:, -1]
-y = lab.map({c: i for i, c in enumerate(classes)}) if lab.dtype == object else lab.astype(int)
-assert not y.isna().any(), f"Label values {sorted(set(lab))} don't match class_names {classes}"
+lab = df.iloc[:, -1].astype(str).str.strip()
+class_to_idx = {str(c): i for i, c in enumerate(classes)}
+y = lab.map(class_to_idx)
+if y.isna().any():
+    unknown = lab[y.isna()].unique().tolist()
+    raise ValueError(f"Unknown labels found: {unknown}")
 y = y.values.astype(int)
 X = scaler.transform(df[genes].values)
 
