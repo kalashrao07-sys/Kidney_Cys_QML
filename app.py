@@ -60,7 +60,7 @@ st.warning(
     "app.py for why single-array RMA isn't meaningful without a frozen reference."
 )
 
-model_choice = st.radio("Model", ["SVM-RBF (classical, recommended)", "QSVM (quantum kernel)"])
+model_choice = st.radio("Model", ["SVM-RBF (classical)", "QSVM (quantum kernel)"])
 
 uploaded = st.file_uploader("Upload a CSV: one row per sample, columns = probe IDs", type=["csv"])
 
